@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta charset="UTF-8">
+  <title>Hello World App</title>
+  <script id="sap-ui-bootstrap" src="https://openui5.hana.ondemand.com/resources/sap-ui-core.js" data-sap-ui-theme="sap_bluecrystal" data-sap-ui-libs="sap.m" data-sap-ui-preload="async">
+  </script>
+  <script type="text/javascript">
+    sap.ui.getCore().attachInit(function() {
+      // create a mobile app and display page1 initially
+      var app = new sap.m.App("myApp", {
+        initialPage: "page1"
+      });
+
+      var tiles = new Array();
+      var oTile = new sap.m.StandardTile("worst_case", {
+        icon: sap.ui.core.IconPool.getIconURI("cloud"),
+        number: "-18,5°C",
+        numberUnit: "Gefriertruhe",
+        title: "Keller",
+        info: "Temperatur: stabil",
+        infoState: "Success"
+      });
+      tiles.push(oTile);
+
+      // create the first page
+      var page1 = new sap.m.Page("page1", {
+        title: "Messwerte vom 16.09.2018 - 17.13 Uhr",
+        showNavButton: false,
+        content: [
+          new sap.m.TileContainer({
+            tiles: tiles
+          })
+        ]
+      });
+
+      // add both pages to the app
+      app.addPage(page1);
+      // place the app into the HTML document
+      app.placeAt("content");
+    });
+  </script>
+</head>
+
+<body class="sapUiBody" id="content">
+</body>
+
+</html>
