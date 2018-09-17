@@ -1,118 +1,149 @@
-/******************************************************************
-* FIRST TRY WITHOUT SENSORS! ONLY FOR TRYING OUT CONSUMING UI5!!!
-* THIS CODE IS NOT CLEAND UP FINALLY!
-* YOU WILL FIND SOME USELESS FRAGMENTS! I´m SORRY... 
-* With part´s from: Usman Ali Butt - microcontroller-project.com
- * ****************************************************************/
-#include <ESP8266WiFi.h>
+#include "WiFiClient.h"
+#include "ESP8266WebServer.h"
+#include "ESP8266mDNS.h"
+#include "DHT.h"
+
+#define DHTPIN 2        // Der Pin vom Wetter-Sensor
+#define DHTTYPE DHT22   // Welcher Wettersonsor ? -> DHT 22  (AM2302), AM2321
+
+const char* ssid = "";
+const char* password = "";
+const int led = 13;
+
+
+
+
+DHT dht(DHTPIN, DHTTYPE);
+ESP8266WebServer server(80);
+
+
+
+
+void handleRoot() {
+  // Luftfeuchtigkeit lesen
+  float h = dht.readHumidity();
+  // Temperatur auslesen
+  float t = dht.readTemperature();
+
  
-const char* ssid = "------  YOUR WLAN NAME HERE !!! ------";
-const char* password = "------  YOUR PASSWORD HERE !!! ------";
-int Raw       = A0;      //Analog channel A0 as used to measure temperature
-int threshold = 13;      //Nodemcu digital pin water sensor read
-const int regensensorPin = 2; // Pin vom Regensensor
-int buttonState = 0;          // variable for reading the pushbutton status
-WiFiServer server(80);
+  String INDEX_HTML = "";
+  INDEX_HTML += "<!DOCTYPE html>"; 
+  INDEX_HTML +=  "<html>"; 
+  INDEX_HTML +=  "<head>"; 
+  INDEX_HTML +=    "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />"; 
+  INDEX_HTML +=    "<meta charset=\"UTF-8\">"; 
+  INDEX_HTML +=    "<title>Hauswächter</title>"; 
+  INDEX_HTML +=    "<script id=\"sap-ui-bootstrap\" src=\"https://openui5.hana.ondemand.com/resources/sap-ui-core.js\" data-sap-ui-theme=\"sap_bluecrystal\" data-sap-ui-libs=\"sap.m\" data-sap-ui-preload=\"async\">"; 
+  INDEX_HTML +=    "</script>"; 
+  INDEX_HTML +=    "<script type=\"text/javascript\">"; 
+  INDEX_HTML +=      "sap.ui.getCore().attachInit(function() {"; 
+      // create a mobile app and display page initially
+  INDEX_HTML +=        "var app = new sap.m.App(\"myApp\", {"; 
+  INDEX_HTML +=          "initialPage: \"page1\""; 
+  INDEX_HTML +=        "});"; 
+      // Add one or more tiles
+  INDEX_HTML +=        "var tiles = new Array();"; 
+  INDEX_HTML +=        "var oTile = new sap.m.StandardTile(\"worst_case\", {"; 
+  INDEX_HTML +=          "icon: sap.ui.core.IconPool.getIconURI(\"cloud\"),"; 
+  INDEX_HTML +=          "number: \"";
+  INDEX_HTML += t;
+  INDEX_HTML +=          " °C\",";
+  INDEX_HTML +=          "numberUnit: \"Carport\","; 
+  INDEX_HTML +=          "title: \"Aussensensor\","; 
+  INDEX_HTML +=          "info: \"Luft:";
+  INDEX_HTML += h,
+  INDEX_HTML +=          " %\",";
+  INDEX_HTML +=          "infoState: \"Success\""; 
+  INDEX_HTML +=        "});"; 
+  INDEX_HTML +=        "tiles.push(oTile);"; 
+      // create the page
+  INDEX_HTML +=        "var page1 = new sap.m.Page(\"page1\", {"; 
+  INDEX_HTML +=          "title: \"Messwerte vom ...\","; 
+  INDEX_HTML +=          "showNavButton: false,"; 
+  INDEX_HTML +=          "content: ["; 
+  INDEX_HTML +=            "new sap.m.TileContainer({"; 
+  INDEX_HTML +=              "tiles: tiles"; 
+  INDEX_HTML +=            "})"; 
+  INDEX_HTML +=          "]"; 
+  INDEX_HTML +=        "});"; 
+      // add page to the app
+  INDEX_HTML +=        "app.addPage(page1);"; 
+      // place the app into the HTML document" 
+  INDEX_HTML +=        "app.placeAt(\"content\");"; 
+  INDEX_HTML +=      "});"; 
+  INDEX_HTML +=    "</script>"; 
+  INDEX_HTML +=  "</head>"; 
+  INDEX_HTML +=  "<body class=\"sapUiBody\" id=\"content\">"; 
+  INDEX_HTML +=  "</body>"; 
+  INDEX_HTML +=  "</html>"; 
  
-void setup() {
-  // initialize the pushbutton pin as an input:
-  pinMode(regensensorPin, INPUT);
+ 
+
+  
+  digitalWrite(led, 1);
+  server.send(200, "text/html", INDEX_HTML);
+  digitalWrite(led, 0);
+}
+
+
+
+
+void handleNotFound(){
+  digitalWrite(led, 1);
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET)?"GET":"POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i=0; i<server.args(); i++){
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  server.send(404, "text/plain", message);
+  digitalWrite(led, 0);
+}
+
+
+
+
+void setup(void){
+  pinMode(led, OUTPUT);
+  digitalWrite(led, 0);
   Serial.begin(115200);
-  delay(10);
-  // Connect to WiFi network
-  pinMode(threshold,INPUT_PULLUP); //Pin#12 as output-Activate pullup at pin 13
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
- 
-  WiFi.begin(ssid, password);     //Begin WiFi
- 
+  WiFi.begin(ssid, password);
+  Serial.println("");
+  
+  dht.begin();
+
+  // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
   Serial.println("");
-  Serial.println("WiFi connected");
- 
-  // Start the server
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  if (MDNS.begin("esp8266")) {
+    Serial.println("MDNS responder started");
+  }
+
+  server.on("/", handleRoot);
+
+  server.on("/inline", [](){
+    server.send(200, "text/plain", "this works as well");
+  });
+
+  server.onNotFound(handleNotFound);
+
   server.begin();
-  Serial.println("Server started");
- 
-  // Print the IP address on serial monitor
-  Serial.print("Use this URL to connect: ");
-  Serial.print("http://");    //URL IP to be typed in mobile/desktop browser
-  Serial.print(WiFi.localIP());
-  Serial.println("/");
- 
-}
- 
-void loop() {
-  // Check if a client has connected
-  WiFiClient client = server.available();
-  if (!client) {
-    return;
-  }
- 
-  // Wait until the client sends some data
-  Serial.println("new client");
-  while(!client.available()){
-    delay(1);
-  }
- 
-  // Read the first line of the request
-  String request = client.readStringUntil('\r');
-  Serial.println(request);
-  client.flush();
-
-
-
- 
-  // Return the response
-  client.println("<!DOCTYPE html>");
-  client.println("<html>");
-  client.println("<head>");
-    client.println("<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />");
-    client.println("<meta charset=\"UTF-8\">");
-    client.println("<title>Hello World App</title>");
-    client.println("<script id=\"sap-ui-bootstrap\" src=\"https://openui5.hana.ondemand.com/resources/sap-ui-core.js\" data-sap-ui-theme=\"sap_bluecrystal\" data-sap-ui-libs=\"sap.m\" data-sap-ui-preload=\"async\">");
-    client.println("</script>");
-    client.println("<script type=\"text/javascript\">");
-      client.println("sap.ui.getCore().attachInit(function() {");
-      // create a mobile app and display page initially
-        client.println("var app = new sap.m.App(\"myApp\", {");
-          client.println("initialPage: \"page1\"");
-        client.println("});");
-      // Add one or more tiles
-        client.println("var tiles = new Array();");
-        client.println("var oTile = new sap.m.StandardTile(\"worst_case\", {");
-          client.println("icon: sap.ui.core.IconPool.getIconURI(\"cloud\"),");
-          client.println("number: \"-18,5°C\",");
-          client.println("numberUnit: \"Gefriertruhe\",");
-          client.println("title: \"Keller\",");
-          client.println("info: \"Temperatur: stabil\",");
-          client.println("infoState: \"Success\"");
-        client.println("});");
-        client.println("tiles.push(oTile);");
-      // create the page
-        client.println("var page1 = new sap.m.Page(\"page1\", {");
-          client.println("title: \"Messwerte vom 16.09.2018 - 17.13 Uhr\",");
-          client.println("showNavButton: false,");
-          client.println("content: [");
-            client.println("new sap.m.TileContainer({");
-              client.println("tiles: tiles");
-            client.println("})");
-          client.println("]");
-        client.println("});");
-      // add page to the app
-        client.println("app.addPage(page1);");
-      // place the app into the HTML document");
-        client.println("app.placeAt(\"content\");");
-      client.println("});");
-    client.println("</script>");
-  client.println("</head>");
-  client.println("<body class=\"sapUiBody\" id=\"content\">");
-  client.println("</body>");
-  client.println("</html>");
- 
+  Serial.println("HTTP server started");
 }
 
+void loop(void){
+  server.handleClient();
+}
